@@ -1,41 +1,34 @@
-use std::sync::Arc;
-use winit::{dpi::PhysicalSize, window::{Fullscreen, Window}};
-use vello::{kurbo::Affine, peniko::{self, color::palette::css::BLUE, Fill, Image}, wgpu::{self, Features, PipelineCompilationOptions, TextureFormat}, RendererOptions, Scene};
-use crosslog::prelude::*;
-use crate::WindowConfig;
-use crate::coords::Vec2;
+use std::{num::NonZeroUsize, sync::Arc};
 
-pub struct Renderer {
+use vello::{wgpu::{self, PipelineCache, PipelineCompilationOptions, TextureFormat}, Renderer};
+use winit::window::Window;
 
-	pub window			: Arc<Window>					,
-	pub surface			: wgpu::Surface<'static>		,
-	pub device			: Arc<wgpu::Device>				,
-	pub queue			: wgpu::Queue					,
-	pub config			: wgpu::SurfaceConfiguration	,
-	pub texture_format	: wgpu::TextureFormat			,
-	pub renderer		: vello::Renderer				,
-	
-	pub texture				: wgpu::Texture					,
-	pub texture_view		: wgpu::TextureView				,
-	pub sampler				: wgpu::Sampler					,
+use crate::prelude::*;
+
+pub struct Gpu {
+	pub window: Arc<Window>,
+	pub surface: wgpu::Surface<'static>,
+	pub device: Arc<wgpu::Device>,
+	pub queue: wgpu::Queue,
+	pub config: wgpu::SurfaceConfiguration,
+	pub renderer: vello::Renderer,
+	pub texture: wgpu::Texture,
+	pub texture_view: wgpu::TextureView,
+
 	pub bind_group_layout	: wgpu::BindGroupLayout			,
-	pub bind_group			: wgpu::BindGroup				,
-	pub swizzle				: wgpu::ShaderModule			,
+	pub bind_group			: wgpu::BindGroup				,	
 	pub pipeline_layout		: wgpu::PipelineLayout			,
 	pub pipeline			: wgpu::RenderPipeline			,
+	pub swizzle_shader		: wgpu::ShaderModule			,
+	pub sampler				: wgpu::Sampler					,
 
-} // end struct Renderer
+} // end struct Gpu
 
-impl Renderer {
+impl Gpu {
+	pub async fn new(window: Arc<Window>) -> Self {
 
-	/// Creates a new Renderer instance
-	pub async fn new ( window: Arc<Window>, resolution: (u32, u32)) -> Self {
-
-		let size = PhysicalSize::new(resolution.x(), resolution.y());
-		let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
-			backends: wgpu::Backends::PRIMARY,
-			..Default::default()
-		}); // end let instance
+		let resolution: Dimensions = window.inner_size().into();
+		let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
 		let surface = instance.create_surface(window.clone()).expect("could not create surface");
 		let adapter: wgpu::Adapter = instance.request_adapter (
 			&wgpu::RequestAdapterOptions {
@@ -44,44 +37,30 @@ impl Renderer {
 				force_fallback_adapter: false,
 			}, // end RequestAdapterOptions
 		).await.unwrap();
-		let (device, queue) = adapter.request_device (
-			&wgpu::DeviceDescriptor {
-				required_features: adapter.features() | Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES,
-				required_limits: wgpu::Limits::default(),
-				label: None,
-				memory_hints: Default::default(),
-			}, None
-		).await.unwrap();
+		let (device, queue) = adapter.request_device(&wgpu::DeviceDescriptor {
+			required_features: wgpu::Features::empty(),
+			required_limits: adapter.limits(),
+			label: None,
+			memory_hints: Default::default(),
+		}, None).await.unwrap();
 		let surface_caps = surface.get_capabilities(&adapter);
-		println!("Surface capabilities: {:?}", surface_caps.formats);
-		let surface_format = *surface_caps.formats.iter().find(
-			|&&format| !format.is_srgb())
-			.unwrap_or(&wgpu::TextureFormat::Bgra8Unorm);
+		let surface_format = TextureFormat::Bgra8Unorm;
 		let config = wgpu::SurfaceConfiguration {
-			usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::STORAGE_BINDING | wgpu::TextureUsages::TEXTURE_BINDING,
+			usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
 			format: surface_format,
-			width: size.width,
-			height: size.height,
+			width: (resolution.width as u32).max(1),
+			height: (resolution.height as u32).max(1),
 			present_mode: wgpu::PresentMode::Fifo,
 			desired_maximum_frame_latency: 2,
 			alpha_mode: wgpu::CompositeAlphaMode::Opaque,
-			view_formats: vec![surface_format],
+			view_formats: vec![],
 		}; // end let config
 		surface.configure(&device, &config);
-		let texture_format = config.format;
-		let renderer = vello::Renderer::new(&device, RendererOptions {
-			use_cpu: false,
-			antialiasing_support: vello::AaSupport::all(),
-			num_init_threads: std::num::NonZeroUsize::new(1),
-			pipeline_cache: None,
-		}).expect("failed to create renderer");
-
-
 		let texture = device.create_texture(&wgpu::TextureDescriptor {
-			label: Some("buffer_texture"),
+			label: Some("Buffer Texture"),
 			size: wgpu::Extent3d {
-				width: config.width,
-				height: config.height,
+				width: config.width.max(1),
+				height: config.height.max(1),
 				depth_or_array_layers: 1,
 			},
 			mip_level_count: 1,
@@ -89,14 +68,25 @@ impl Renderer {
 			dimension: wgpu::TextureDimension::D2,
 			format: TextureFormat::Rgba8Unorm,
 			usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::STORAGE_BINDING,
-			view_formats: &[TextureFormat::Rgba8Unorm],
+			view_formats: &[],
 		}); // end let buffer_texture
 		let texture_view = texture.create_view(&wgpu::TextureViewDescriptor {
-			label: Some("buffer_view"),
+			label: Some("Buffer View"),
 			format: Some(TextureFormat::Rgba8Unorm),
 			..Default::default()
 		}); // end let buffer_view
 
+		log!("Loading Vello renderer... This might take a while.");
+		let renderer = Renderer::new(
+			&device,
+			vello::RendererOptions {
+				use_cpu: false,
+				antialiasing_support: vello::AaSupport::all(),
+				num_init_threads: None,
+				pipeline_cache: None,
+			}, // end RendererOptions
+		).unwrap(); // end let renderer
+		log!("Vello renderer loaded!");
 
 		let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
 			label: Some("PostProcess Sampler"),
@@ -143,7 +133,7 @@ impl Renderer {
 				}, // end wgpu::BindGroupEntry
 			], // end entries
 		}); // end let bind_group
-		let swizzle = device.create_shader_module(wgpu::include_wgsl!("../shaders/swizzle.wgsl"));
+		let swizzle_shader = device.create_shader_module(wgpu::include_wgsl!("../../shaders/swizzle.wgsl"));
 		let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
 			label: Some("PostProcess Pipeline Layout"),
 			bind_group_layouts: &[&bind_group_layout],
@@ -153,16 +143,16 @@ impl Renderer {
 			label: Some("PostProcess Pipeline"),
 			layout: Some(&pipeline_layout),
 			vertex: wgpu::VertexState {
-				module: &swizzle,
+				module: &swizzle_shader,
 				entry_point: Some("vs_main"),
 				buffers: &[],
 				compilation_options: PipelineCompilationOptions::default(),
 			}, // end vertex: wgpu::VertexState
 			fragment: Some(wgpu::FragmentState {
-				module: &swizzle,
+				module: &swizzle_shader,
 				entry_point: Some("fs_main"),
 				targets: &[Some(wgpu::ColorTargetState {
-					format: texture_format,
+					format: surface_format,
 					blend: Some(wgpu::BlendState::REPLACE),
 					write_mask: wgpu::ColorWrites::ALL,
 				})], // end targets
@@ -176,82 +166,34 @@ impl Renderer {
 		}); // end let pipeline
 
 		return Self {
-
-			window: window.clone(),
+			
+			window,
 			surface,
 			device: Arc::new(device),
 			queue,
 			config,
-			texture_format,
 			renderer,
-
 			texture,
 			texture_view,
-			sampler,
+
 			bind_group_layout,
 			bind_group,
-			swizzle,
 			pipeline_layout,
 			pipeline,
+			sampler,
+			swizzle_shader,
 
-		}; // end return Renderer
-
+		}; // end return Self
 	} // end fn new
 
-	pub fn render (&mut self, scene: &Scene) {
-
-		let window_texture: wgpu::SurfaceTexture = self.surface.get_current_texture().unwrap();
-		let window_view = window_texture.texture.create_view(&wgpu::TextureViewDescriptor {
-			label: Some("window_view"),
-			format: Some(self.texture_format),
-			..Default::default()
-		}); // end let window_view
-
-		self.renderer.render_to_texture(&self.device, &self.queue, scene, &self.texture_view, &vello::RenderParams {
-			base_color: peniko::color::palette::css::BLACK,
-			width: self.config.width,
-			height: self.config.height,
-			antialiasing_method: vello::AaConfig::Msaa16,
-		}).unwrap();
-
-		let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-			label: Some("PostProcess Encoder"),
-		});
-
-		{	let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-				label: Some("PostProcess Pass"),
-				color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-					view: &window_view, // <- your TextureView here
-					resolve_target: None,
-					ops: wgpu::Operations {
-						load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-						store: wgpu::StoreOp::Store,
-					}, // end ops
-				})], // end color_attachments
-				depth_stencil_attachment: None,
-				timestamp_writes: None,
-				occlusion_query_set: None,
-			}); // end let mut pass
-			pass.set_pipeline(&self.pipeline);
-			pass.set_bind_group(0, &self.bind_group, &[]);
-			pass.draw(0..3, 0..1); // Fullscreen triangle
-		} // end let mut pass
-
-		self.queue.submit(Some(encoder.finish()));
-		window_texture.present();
-
-	} // end fn render
-
-	pub fn resize (&mut self, resolution: (u32, u32)) {
-		self.config.width = resolution.0;
-		self.config.height = resolution.1;
-
-		// Reconfigure the surface
+	pub fn resize(&mut self, size: impl Into<Dimensions>) {
+		info!("Resizing GPU context");
+		let resolution = size.into();
+		self.config.width = resolution.width as u32;
+		self.config.height = resolution.height as u32;
 		self.surface.configure(&self.device, &self.config);
-
-		// Recreate the texture
 		self.texture = self.device.create_texture(&wgpu::TextureDescriptor {
-			label: Some("buffer_texture"),
+			label: Some("Buffer Texture"),
 			size: wgpu::Extent3d {
 				width: self.config.width,
 				height: self.config.height,
@@ -260,37 +202,28 @@ impl Renderer {
 			mip_level_count: 1,
 			sample_count: 1,
 			dimension: wgpu::TextureDimension::D2,
-			format: wgpu::TextureFormat::Rgba8Unorm,
+			format: TextureFormat::Rgba8Unorm,
 			usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::STORAGE_BINDING,
-			view_formats: &[wgpu::TextureFormat::Rgba8Unorm],
-		});
-
-		// Recreate the texture view
+			view_formats: &[],
+		}); // end let buffer_texture
 		self.texture_view = self.texture.create_view(&wgpu::TextureViewDescriptor {
-			label: Some("buffer_view"),
-			format: Some(wgpu::TextureFormat::Rgba8Unorm),
+			label: Some("Buffer Texture View"),
 			..Default::default()
-		});
-
-		// Recreate the bind group
+		}); // end let buffer_texture_view
 		self.bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
 			label: Some("RGBA to BGRA Bind Group"),
 			layout: &self.bind_group_layout,
 			entries: &[
 				wgpu::BindGroupEntry {
 					binding: 0,
-					resource: wgpu::BindingResource::TextureView(&self.texture_view),
-				},
+					resource: wgpu::BindingResource::TextureView(&self.texture_view), // Rgba8Unorm texture view
+				}, // end wgpu::BindGroupEntry
 				wgpu::BindGroupEntry {
 					binding: 1,
 					resource: wgpu::BindingResource::Sampler(&self.sampler),
-				},
-			],
-		});
+				}, // end wgpu::BindGroupEntry
+			], // end entries
+		}); // end let bind_group
 	} // end fn resize
+} // end impl Gpu
 
-	pub fn set_fullscreen (&mut self, fullscreen: bool) {
-		self.window.set_fullscreen(if fullscreen { Some(Fullscreen::Borderless(None)) } else { None });
-	} // end fn update_config
-
-} // end impl Renderer

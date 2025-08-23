@@ -1,19 +1,21 @@
 [package]
 name = "purple"
-version = "0.0.1"
+version = "0.0.3"
 edition = "2024"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-winit = "0.30.12"
-vello = "0.5.0"
 crosslog = { git = "https://github.com/Deathaclops/crosslog.git" }
-async-std = "1.13.0"
+winit = "0.30"
+vello = "0.5"
+image = { version = "0.25.6", default-features = false, features = ["default-formats"] }
+async-std = "1.13"
+futures = "0.3"
 
 [target.wasm32-unknown-unknown.dependencies]
-web-sys = "0.3.77"
-wasm-bindgen-futures = "0.4.50"
-web-time = "1.1.0"
+web-sys = "0.3"
+wasm-bindgen-futures = "0.4"
+web-time = "1.1"
 
