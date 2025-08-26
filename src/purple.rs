@@ -12,6 +12,23 @@ pub struct WindowConfig {
 	pub canvas_id: Option<String>,
 } // end struct WindowConfig
 
+impl WindowConfig {
+	pub fn new() -> Self { return Self::default(); }
+	pub fn with_title(mut self, title: impl Into<String>) -> Self { self.title = title.into(); return self; }
+	pub fn with_resolution(mut self, resolution: impl Into<Dimensions>) -> Self { self.resolution = resolution.into(); return self; }
+	pub fn with_fullscreen(mut self, fullscreen: bool) -> Self { self.fullscreen = fullscreen; return self; }
+	pub fn with_canvas_id(mut self, canvas_id: impl Into<String>) -> Self { self.canvas_id = Some(canvas_id.into()); return self; }
+} // end impl WindowConfig
+
+impl Default for WindowConfig {
+	fn default() -> Self { return Self {
+		title: "Application".into(),
+		resolution: (960, 540).into(),
+		fullscreen: false,
+		canvas_id: Some("canvas".into()),
+	}; } // end fn default
+} // end impl Default
+
 pub struct Purple<F> where F: FnMut(&mut Context) {
 	pub window: Option<Arc<window::Window>>,
 	pub eloop: F,
@@ -92,7 +109,7 @@ impl<F> ApplicationHandler for Purple<F> where F: FnMut(&mut Context) {
 				context.window.request_redraw();
 			} // end RedrawRequested
 
-			winit::event::WindowEvent::CloseRequested => { event_loop.exit(); }
+			winit::event::WindowEvent::CloseRequested => { drop(context); context_buffer.take(); event_loop.exit(); }
 			winit::event::WindowEvent::Resized(size) => { context.resize(); }
 			winit::event::WindowEvent::CursorMoved { device_id, position } => { context.state.mouse = Some((position.x, position.y).into()); }
 			winit::event::WindowEvent::CursorLeft { device_id } => { context.state.mouse = None; }
