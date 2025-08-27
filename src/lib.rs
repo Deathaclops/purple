@@ -3,7 +3,7 @@ pub mod prim;
 pub mod purple;
 pub mod context;
 pub mod scene;
-pub mod font;
+pub mod text;
 
 pub mod prelude {
 	pub use crosslog::prelude::{println, *};

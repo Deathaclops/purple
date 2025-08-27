@@ -10,6 +10,7 @@ pub struct WindowConfig {
 	pub resolution: Dimensions,
 	pub fullscreen: bool,
 	pub canvas_id: Option<String>,
+	pub disable_decorations: bool,
 } // end struct WindowConfig
 
 impl WindowConfig {
@@ -26,6 +27,7 @@ impl Default for WindowConfig {
 		resolution: (960, 540).into(),
 		fullscreen: false,
 		canvas_id: Some("canvas".into()),
+		disable_decorations: false,
 	}; } // end fn default
 } // end impl Default
 
@@ -51,7 +53,8 @@ impl<F> ApplicationHandler for Purple<F> where F: FnMut(&mut Context) {
 		let mut window_attributes = window::WindowAttributes::default()
 		.with_title(self.config.title.as_str())
 		.with_fullscreen(if self.config.fullscreen { FULLSCREEN } else { WINDOWED })
-		.with_resizable(true);
+		.with_resizable(true)
+		.with_decorations(!self.config.disable_decorations);
 
 		let mut resolution = self.config.resolution;
 
