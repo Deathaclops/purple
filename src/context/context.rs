@@ -58,6 +58,7 @@ impl Context {
 						load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
 						store: wgpu::StoreOp::Store,
 					}, // end ops
+					depth_slice: None,
 				})], // end color_attachments
 				depth_stencil_attachment: None,
 				timestamp_writes: None,

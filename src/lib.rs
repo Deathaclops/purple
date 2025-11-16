@@ -16,9 +16,8 @@ pub mod prelude {
 } // end mod prelude
 
 #[cfg(target_arch = "wasm32")]
-pub mod web { use std::sync::Arc;
-
-// Web-specific functionality
+pub mod web { // Web-specific functionality
+	use std::sync::Arc;
 	use web_sys::{HtmlCanvasElement, wasm_bindgen::JsCast};
 	use winit::{window::Window, platform::web::WindowExtWebSys};
 	pub fn get_canvas(id: &String) -> Option<HtmlCanvasElement> {

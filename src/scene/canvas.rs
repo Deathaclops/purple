@@ -87,7 +87,7 @@ impl Canvas {
 		let slice = self.buffer.as_ref().unwrap().slice(..);
 		let (sender, receiver) = futures::channel::oneshot::channel();
 		slice.map_async(wgpu::MapMode::Read, move |res| { sender.send(res).unwrap(); });
-		gpu.device.poll(wgpu::Maintain::Wait);
+		gpu.device.poll(wgpu::PollType::Wait);
 		match receiver.await { Ok(Ok(())) => { self.data = slice.get_mapped_range().to_vec(); } _ => {} }
 	} // end fn download
 } // end impl Canvas

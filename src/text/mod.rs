@@ -3,11 +3,10 @@ use parley::{AlignmentOptions, FontFamily, StyleProperty};
 
 use crate::scene::Scene;
 
-pub fn draw_text(ctx: &mut FontContext, scene: &mut Scene, transform: vello::kurbo::Affine, text: String, fonts: &[String]) {
+pub fn draw_text(ctx: &mut FontContext, scene: &mut Scene, transform: vello::kurbo::Affine, text: String, fonts: &[String], max_width: Option<f32>) {
 
 	let text: String = text.into();
 	let scale = 1.0;
-	let max_width = Some(400.0);
 	
 	let mut ffs = Vec::new();
 	for ff in fonts { ffs.push(FontFamily::Named(std::borrow::Cow::Borrowed(ff.as_str()))) }

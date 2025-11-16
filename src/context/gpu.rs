@@ -14,14 +14,12 @@ pub struct Gpu {
 	pub renderer: vello::Renderer,
 	pub texture: wgpu::Texture,
 	pub texture_view: wgpu::TextureView,
-
 	pub bind_group_layout	: wgpu::BindGroupLayout			,
 	pub bind_group			: wgpu::BindGroup				,	
 	pub pipeline_layout		: wgpu::PipelineLayout			,
 	pub pipeline			: wgpu::RenderPipeline			,
 	pub swizzle_shader		: wgpu::ShaderModule			,
 	pub sampler				: wgpu::Sampler					,
-
 } // end struct Gpu
 
 impl Gpu {
@@ -42,7 +40,8 @@ impl Gpu {
 			required_limits: adapter.limits(),
 			label: None,
 			memory_hints: Default::default(),
-		}, None).await.unwrap();
+			trace: wgpu::Trace::Off,
+		}).await.unwrap();
 		let surface_caps = surface.get_capabilities(&adapter);
 		let surface_format = TextureFormat::Bgra8Unorm;
 		let config = wgpu::SurfaceConfiguration {
@@ -186,11 +185,11 @@ impl Gpu {
 		}; // end return Self
 	} // end fn new
 
-	pub fn resize(&mut self, size: impl Into<Dimensions>) {
+	pub async fn resize(&mut self, size: impl Into<Dimensions>) {
 		info!("Resizing GPU context");
 		let resolution = size.into();
-		self.config.width = resolution.width as u32;
-		self.config.height = resolution.height as u32;
+		self.config.width = (resolution.width as u32).max(1);
+		self.config.height = (resolution.height as u32).max(1);
 		self.surface.configure(&self.device, &self.config);
 		self.texture = self.device.create_texture(&wgpu::TextureDescriptor {
 			label: Some("Buffer Texture"),

@@ -1,9 +1,7 @@
-use std::collections::HashMap;
 
-use ::image::buffer;
-use vello::{kurbo::Vec2, peniko::color::AlphaColor};
+use vello::peniko::ImageBrush;
 
-use crate::{text, prelude::*};
+use crate::prelude::*;
 
 pub struct Scene(pub vello::Scene);
 
@@ -17,7 +15,7 @@ impl Scene {
 		self.0.stroke(stroke, transform, color.into(), None, shape);
 	} // end fn stroke
 	pub fn draw_image(&mut self, image: &Image, transform: vello::kurbo::Affine) {
-		self.0.draw_image(&image.image, transform);
+		self.0.draw_image(&ImageBrush::new(image.image.clone()), transform);
 	} // end fn draw_image
 	pub fn draw_scene(&mut self, scene: &Scene, transform: vello::kurbo::Affine) {
 		self.0.append(&scene.0, Some(transform));

@@ -1,6 +1,9 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc};
-use winit::{application::ApplicationHandler, event::MouseScrollDelta, event_loop::{ControlFlow, EventLoop}, window};
+use winit::{application::ApplicationHandler, event::MouseScrollDelta, event_loop::{ControlFlow, EventLoop}, window::{self, Icon}};
 use crate::prelude::*;
+
+#[cfg(target_os = "windows")]
+use winit::platform::windows::{WindowAttributesExtWindows, WindowExtWindows};
 
 const FULLSCREEN: Option<window::Fullscreen> = Some(window::Fullscreen::Borderless(None));
 const WINDOWED: Option<window::Fullscreen> = None;
@@ -11,6 +14,7 @@ pub struct WindowConfig {
 	pub fullscreen: bool,
 	pub canvas_id: Option<String>,
 	pub disable_decorations: bool,
+	pub icon: Option<Image>
 } // end struct WindowConfig
 
 impl WindowConfig {
@@ -19,6 +23,7 @@ impl WindowConfig {
 	pub fn with_resolution(mut self, resolution: impl Into<Dimensions>) -> Self { self.resolution = resolution.into(); return self; }
 	pub fn with_fullscreen(mut self, fullscreen: bool) -> Self { self.fullscreen = fullscreen; return self; }
 	pub fn with_canvas_id(mut self, canvas_id: impl Into<String>) -> Self { self.canvas_id = Some(canvas_id.into()); return self; }
+	pub fn with_icon(mut self, icon: Option<Image>) -> Self { self.icon = icon; return self; }
 } // end impl WindowConfig
 
 impl Default for WindowConfig {
@@ -28,11 +33,11 @@ impl Default for WindowConfig {
 		fullscreen: false,
 		canvas_id: Some("canvas".into()),
 		disable_decorations: false,
+		icon: None,
 	}; } // end fn default
 } // end impl Default
 
 pub struct Purple<F> where F: FnMut(&mut Context) {
-	pub window: Option<Arc<window::Window>>,
 	pub eloop: F,
 	pub config: WindowConfig,
 	pub context: Rc<RefCell<Option<Context>>>,
@@ -42,13 +47,21 @@ impl<F> Purple<F> where F: FnMut(&mut Context) {
 	pub fn new ( config: WindowConfig, eloop: F ) {
 		let event_loop: EventLoop<()> = EventLoop::new().unwrap();
 		event_loop.set_control_flow(ControlFlow::Wait);
-		let mut purple = Self { window: None, eloop, config, context: Rc::new(RefCell::new(None)) };
+		let mut purple = Self { eloop, config, context: Rc::new(RefCell::new(None)) };
 		let _ = event_loop.run_app(&mut purple);
 	} // end fn new
 } // end impl Purple
 
 impl<F> ApplicationHandler for Purple<F> where F: FnMut(&mut Context) {
 	fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+
+		let mut icon = None;
+		if let Some(icon_image) = &mut self.config.icon {
+			println!("Icon image found");
+			let Dimensions { width, height } = icon_image.size();
+			let icon_data = icon_image.get_bytes();
+			icon = Some(Icon::from_rgba(icon_data, width as u32, height as u32).unwrap());
+		} // end if let Some(icon_image)
 
 		let mut window_attributes = window::WindowAttributes::default()
 		.with_title(self.config.title.as_str())
@@ -70,7 +83,6 @@ impl<F> ApplicationHandler for Purple<F> where F: FnMut(&mut Context) {
 
 		window_attributes = window_attributes.with_inner_size(winit::dpi::PhysicalSize::new(resolution.width, resolution.height));
 		let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
-		self.window = Some(window.clone());
 
 		#[cfg(target_arch = "wasm32")]
 		{	let mut clone = self.context.clone();
@@ -86,6 +98,7 @@ impl<F> ApplicationHandler for Purple<F> where F: FnMut(&mut Context) {
 			async_std::task::block_on ( async move {
 				let mut result = Context::new(window.clone()).await;
 				clone.replace(Some(result));
+				window.set_window_icon(icon);
 			}); // end block_on
 		} // end cfg not wasm32
 
@@ -104,15 +117,13 @@ impl<F> ApplicationHandler for Purple<F> where F: FnMut(&mut Context) {
 		match event {
 
 			winit::event::WindowEvent::RedrawRequested => {
-				if context.gpu.texture.width() != context.gpu.window.inner_size().width
-				|| context.gpu.texture.height() != context.gpu.window.inner_size().height { log!("Incorrect texture size, resizing..."); context.resize(); }
 				(self.eloop)(&mut context);
 				context.state.update();
 				context.render();
 				context.window.request_redraw();
 			} // end RedrawRequested
 
-			winit::event::WindowEvent::CloseRequested => { drop(context); context_buffer.take(); event_loop.exit(); }
+			winit::event::WindowEvent::CloseRequested => { context_buffer.take(); event_loop.exit(); }
 			winit::event::WindowEvent::Resized(size) => { context.resize(); }
 			winit::event::WindowEvent::CursorMoved { device_id, position } => { context.state.mouse = Some((position.x, position.y).into()); }
 			winit::event::WindowEvent::CursorLeft { device_id } => { context.state.mouse = None; }
