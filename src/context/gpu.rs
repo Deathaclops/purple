@@ -185,17 +185,16 @@ impl Gpu {
 		}; // end return Self
 	} // end fn new
 
-	pub async fn resize(&mut self, size: impl Into<Dimensions>) {
+	pub fn resize(&mut self) {
 		info!("Resizing GPU context");
-		let resolution = size.into();
+		let resolution = self.window.inner_size();
 		self.config.width = (resolution.width as u32).max(1);
 		self.config.height = (resolution.height as u32).max(1);
-		self.surface.configure(&self.device, &self.config);
 		self.texture = self.device.create_texture(&wgpu::TextureDescriptor {
 			label: Some("Buffer Texture"),
 			size: wgpu::Extent3d {
-				width: self.config.width,
-				height: self.config.height,
+				width: resolution.width.max(1),
+				height: resolution.height.max(1),
 				depth_or_array_layers: 1,
 			},
 			mip_level_count: 1,

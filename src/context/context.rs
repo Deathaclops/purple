@@ -21,7 +21,7 @@ impl Context {
 	} // end fn new
 	pub fn resize(&mut self) {
 		self.state.resolution = self.window.inner_size().into();
-		self.gpu.resize(self.state.resolution);
+		self.gpu.resize();
 	} // end fn resize
 	pub fn render(&mut self) {
 
