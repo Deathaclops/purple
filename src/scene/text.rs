@@ -4,17 +4,32 @@ use parley::{AlignmentOptions, BoundingBox, FontFamily, StyleProperty};
 use vello::peniko::color::AlphaColor;
 use crate::prim::*;
 
-pub use parley::Alignment;
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Alignment { Left, Center, Right, Justify }
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum VerticalAlignment { Top, Center, Bottom }
+
+impl From<Alignment> for parley::Alignment {
+	fn from(alignment: Alignment) -> Self {
+		return match alignment {
+			Alignment::Left => parley::Alignment::Left,
+			Alignment::Center => parley::Alignment::Center,
+			Alignment::Right => parley::Alignment::Right,
+			Alignment::Justify => parley::Alignment::Justify,
+		}; // end return
+	} // end fn from
+} // end impl From<Alignment> for parley::Alignment
 
 pub struct TextOptions {
 	pub font_size: f64,
 	pub color: Option<Color>,
 	pub bbox: Option<crate::prim::BoundingBox>,
 	pub font_names: Option<Vec<String>>,
-	pub alignment: parley::Alignment,
-	pub vertical_center: bool,
-	pub align_when_overflowing_horizontal: bool,
-	pub align_when_overflowing_vertical: bool,
+	pub alignment: Alignment,
+	pub vertical_alignment: VerticalAlignment,
+	pub align_from_left_of_bbox: bool,
+	pub align_from_top_of_bbox: bool,
 	pub quantize: bool,
 } // end struct TextOptions
 
@@ -25,10 +40,10 @@ impl Default for TextOptions {
 			color: None,
 			bbox: None,
 			font_names: None,
-			alignment: parley::Alignment::Start,
-			vertical_center: false,
-			align_when_overflowing_horizontal: false,
-			align_when_overflowing_vertical: false,
+			alignment: Alignment::Left,
+			vertical_alignment: VerticalAlignment::Top,
+			align_from_left_of_bbox: false,
+			align_from_top_of_bbox: false,
 			quantize: false,
 		}; // end return
 	} // end fn default
@@ -48,31 +63,44 @@ pub fn draw_text(scene: &mut Scene, text: String, transform: Affine, font_ctx: &
 	if let Some(ref bbox) = options.bbox {
 		let max_width = bbox.width as f32;
 		layout.break_all_lines(Some(max_width));
-		layout.align(Some(max_width), options.alignment, AlignmentOptions { align_when_overflowing: !options.align_when_overflowing_horizontal });
+		layout.align(Some(max_width), options.alignment.into(), AlignmentOptions { align_when_overflowing: !options.align_from_left_of_bbox });
 	} else {
 		layout.break_all_lines(None);
-		layout.align(None, options.alignment, AlignmentOptions::default());
+		layout.align(None, options.alignment.into(), AlignmentOptions::default());
 	} // end if let Some(bbox)
 
 	let base_y = options.bbox.as_ref().map_or(0.0, |b| b.y as f32);
 		
-	let mut run_y = if options.vertical_center {
-		let base_height = options.bbox.as_ref().map_or(0.0, |b| b.height as f32);
-		let y = (base_height - layout.height() ) / 2.0 + base_y;
-		if options.align_when_overflowing_vertical && layout.height() > base_height { base_y }
-		else { y }
-	} else { base_y };
+	let mut run_y = match options.vertical_alignment {
+		VerticalAlignment::Top => { base_y },
+		VerticalAlignment::Center => {
+			let base_height = options.bbox.as_ref().map_or(0.0, |b| b.height as f32);
+			let y = (base_height - layout.height() ) / 2.0 + base_y;
+			if options.align_from_top_of_bbox && layout.height() > base_height { base_y }
+			else { y }
+		}, VerticalAlignment::Bottom => {
+			let base_height = options.bbox.as_ref().map_or(0.0, |b| b.height as f32);
+			let y = base_height - layout.height() + base_y;
+			if options.align_from_top_of_bbox && layout.height() > base_height { base_y }
+			else { y }
+		}
+	};
 
 	let mut min_y = run_y; let mut max_y = run_y;
-	let mut min_x = -layout.width() / 2.0;
 	let mut begin = true;
+
+	let mut min_x = match options.alignment {
+		Alignment::Left => 0.0,
+		Alignment::Center => -layout.width() / 2.0,
+		Alignment::Right => layout.width(),
+		Alignment::Justify => 0.0,
+	}; // end match
 
 	for line in layout.lines() {
 		min_y = run_y.min(min_y);
 		run_y += line.metrics().line_height;
 		max_y = run_y.max(max_y);
-		if begin { run_y -= line.metrics().descent; }
-		begin = false;
+		if begin { run_y -= line.metrics().descent; begin = false; }
 		for item in line.items() {
 			match item {
 				parley::PositionedLayoutItem::GlyphRun(glyph_run) => {
@@ -80,7 +108,8 @@ pub fn draw_text(scene: &mut Scene, text: String, transform: Affine, font_ctx: &
 					let mut glyphs = Vec::new();
 					let mut run_x = glyph_run.offset();
 					if let Some(ref bbox) = options.bbox { run_x += bbox.x as f32; }
-					if options.bbox.is_none() { run_x -= layout.full_width() / 2.0; }
+					if options.bbox.is_none() && options.alignment == Alignment::Center { run_x -= layout.full_width() / 2.0; }
+					if options.bbox.is_none() && options.alignment == Alignment::Right { run_x -= layout.full_width(); }
 					for glyph in glyph_run.glyphs() {
 						let g = vello::Glyph {
 							id: glyph.id as u32,
