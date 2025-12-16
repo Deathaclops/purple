@@ -3,7 +3,8 @@ pub mod prim;
 pub mod purple;
 pub mod context;
 pub mod scene;
-pub mod text;
+pub mod shapes;
+pub use crosslog;
 
 pub mod prelude {
 	pub use crosslog::prelude::{println, *};
@@ -11,7 +12,7 @@ pub mod prelude {
 	pub use crate::purple::*;
 	pub use crate::context::*;
 	pub use crate::scene::*;
-	pub use vello::kurbo::*;
+	pub use crate::shapes::*;
 	pub use winit::keyboard::KeyCode;
 } // end mod prelude
 

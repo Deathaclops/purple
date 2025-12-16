@@ -1,6 +1,6 @@
-use std::{num::NonZeroUsize, sync::Arc};
+use std::sync::Arc;
 
-use vello::{wgpu::{self, PipelineCache, PipelineCompilationOptions, TextureFormat}, Renderer};
+use vello::{wgpu::{self, PipelineCompilationOptions, TextureFormat}, Renderer};
 use winit::window::Window;
 
 use crate::prelude::*;
@@ -42,14 +42,14 @@ impl Gpu {
 			memory_hints: Default::default(),
 			trace: wgpu::Trace::Off,
 		}).await.unwrap();
-		let surface_caps = surface.get_capabilities(&adapter);
+		let _surface_caps = surface.get_capabilities(&adapter);
 		let surface_format = TextureFormat::Bgra8Unorm;
 		let config = wgpu::SurfaceConfiguration {
 			usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
 			format: surface_format,
 			width: (resolution.width as u32).max(1),
 			height: (resolution.height as u32).max(1),
-			present_mode: wgpu::PresentMode::Fifo,
+			present_mode: wgpu::PresentMode::AutoNoVsync,
 			desired_maximum_frame_latency: 2,
 			alpha_mode: wgpu::CompositeAlphaMode::Opaque,
 			view_formats: vec![],
@@ -190,6 +190,7 @@ impl Gpu {
 		let resolution = self.window.inner_size();
 		self.config.width = (resolution.width as u32).max(1);
 		self.config.height = (resolution.height as u32).max(1);
+		self.surface.configure(&self.device, &self.config);
 		self.texture = self.device.create_texture(&wgpu::TextureDescriptor {
 			label: Some("Buffer Texture"),
 			size: wgpu::Extent3d {

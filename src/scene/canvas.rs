@@ -16,8 +16,6 @@ impl Canvas {
 		let size = size.into();
 		let width = size.width as u32;
 		let height = size.height as u32;
-		let data = vec![0; (width * height * 4) as usize];
-		let image = Image::new_raw(data.clone(), width, height);
 		let texture = gpu.device.create_texture(&wgpu::TextureDescriptor {
             size: wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
             mip_level_count: 1,
@@ -28,12 +26,9 @@ impl Canvas {
             label: Some("CPU-based Canvas"),
             view_formats: &[],
         });
-		gpu.renderer.override_image(&image.image, Some(TexelCopyTextureInfoBase {
-			texture: texture.clone(),
-			origin: wgpu::Origin3d { x: 0, y: 0, z: 0 },
-			mip_level: 0,
-			aspect: wgpu::TextureAspect::All,
-		}));
+		let image_data = gpu.renderer.register_texture(texture.clone());
+		let image = Image { image: image_data };
+		let data = vec![0; (width * height * 4) as usize];
 		return Self {
 			image,
 			data,
@@ -87,7 +82,7 @@ impl Canvas {
 		let slice = self.buffer.as_ref().unwrap().slice(..);
 		let (sender, receiver) = futures::channel::oneshot::channel();
 		slice.map_async(wgpu::MapMode::Read, move |res| { sender.send(res).unwrap(); });
-		gpu.device.poll(wgpu::PollType::Wait);
+		let _ = gpu.device.poll(wgpu::PollType::Wait);
 		match receiver.await { Ok(Ok(())) => { self.data = slice.get_mapped_range().to_vec(); } _ => {} }
 	} // end fn download
 } // end impl Canvas

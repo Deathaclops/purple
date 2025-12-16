@@ -1,7 +1,6 @@
 
-use winit::{event::{ElementState, KeyEvent, MouseButton}, keyboard::{KeyCode, KeyLocation, NamedKey, PhysicalKey}};
+use winit::{event::{ElementState, KeyEvent, MouseButton}, keyboard::{KeyCode, PhysicalKey}};
 use std::collections::HashMap;
-use std::sync::Arc;
 
 #[cfg(target_arch = "wasm32")]
 use web_time::Instant;
@@ -20,6 +19,7 @@ pub struct State {
 	pub mouse_left: ButtonState,
 	pub mouse_right: ButtonState,
 	pub mouse_middle: ButtonState,
+	pub exiting: bool,
 	last_time: Instant,
 } // end struct State
 
@@ -36,6 +36,7 @@ impl State {
 			mouse_left: ButtonState::default(),
 			mouse_right: ButtonState::default(),
 			mouse_middle: ButtonState::default(),
+			exiting: false,
 			last_time: Instant::now(),
 		} // end return
 	} // end fn new
@@ -65,7 +66,7 @@ impl State {
 			PhysicalKey::Unidentified(_) => { return; },
 		}; // end match event.physical_key
 		if self.keys.contains_key(&keycode) {
-			let mut key_state = self.keys.get_mut(&keycode).unwrap();
+			let key_state = self.keys.get_mut(&keycode).unwrap();
 			key_state.on_pressed = event.state == winit::event::ElementState::Pressed && !event.repeat;
 			key_state.on_released = event.state == winit::event::ElementState::Released;
 			key_state.on_typed = event.repeat || key_state.on_pressed;

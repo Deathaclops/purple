@@ -57,6 +57,12 @@ impl From<(u64, u64)> for Dimensions {
 	} // end From (u64, u64)
 } // end impl From (u64, u64) for Dimensions
 
+impl From<(usize, usize)> for Dimensions {
+	fn from(dim: (usize, usize)) -> Self {
+		return Dimensions { width: dim.0 as f64, height: dim.1 as f64 };
+	} // end From (usize, usize)
+} // end impl From (usize, usize) for Dimensions
+
 impl From<PhysicalSize<u32>> for Dimensions {
 	fn from(size: PhysicalSize<u32>) -> Self {
 		return Dimensions { width: size.width as f64, height: size.height as f64 };

@@ -6,7 +6,6 @@ use crate::prim::Dimensions;
 
 pub struct Image {
 	pub image: peniko::ImageData,
-	pub texture: Option<wgpu::Texture>,
 } // end struct Image
 
 impl Image {
@@ -21,7 +20,7 @@ impl Image {
 			data: Blob::new(Arc::new(raw_pixels.clone())),
 			format: ImageFormat::Rgba8,
 			alpha_type: peniko::ImageAlphaType::Alpha,
-		}; return Self { image, texture: None };
+		}; return Self { image };
 	} // end fn new
 	pub fn get_bytes(&self) -> Vec<u8> {
 		self.image.data.data().to_vec()
@@ -34,7 +33,7 @@ impl Image {
 			data: Blob::new(Arc::new(raw_pixels.clone())),
 			format: ImageFormat::Rgba8,
 			alpha_type: peniko::ImageAlphaType::Alpha,
-		}; return Self { image, texture: None };
+		}; return Self { image };
 	} // end fn new_raw
 	pub fn size(&self) -> Dimensions {
 		Dimensions { width: self.image.width as f64, height: self.image.height as f64 }

@@ -4,7 +4,7 @@ use std::sync::Arc;
 use vello::{peniko::color::AlphaColor, wgpu};
 use winit::window::Window;
 
-use crate::{context::{gpu, Gpu}, prim::Dimensions};
+use crate::context::{Gpu};
 use crate::prelude::*;
 
 pub struct Context {
