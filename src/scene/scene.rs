@@ -15,9 +15,9 @@ impl Scene {
 	pub fn stroke(&mut self, stroke_width: impl Into<f64>, color: impl Into<Color>, transform: Affine, shape: &impl vello::kurbo::Shape) {
 		self.0.stroke(&Stroke::new(stroke_width.into()), transform.0, color.into(), None, shape);
 	} // end fn stroke
-	// pub fn draw_image(&mut self, image: &Image, transform: Affine) {
-	// 	self.0.draw_image(&ImageBrush::new(image.image.clone()), transform.0);
-	// } // end fn draw_image
+	pub fn draw_image(&mut self, image: &Image, transform: Affine) {
+		self.0.draw_image(&ImageBrush::new(image.image.clone()), transform.0);
+	} // end fn draw_image
 	pub fn draw_scene(&mut self, scene: &Scene, transform: Affine) {
 		self.0.append(&scene.0, Some(transform.0));
 	} // end fn draw_scene
