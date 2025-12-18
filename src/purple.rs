@@ -1,4 +1,3 @@
-use std::{cell::RefCell, rc::Rc, sync::Arc};
 use winit::{application::ApplicationHandler, event::MouseScrollDelta, event_loop::{ControlFlow, EventLoop}, window::{self, Icon}};
 use crate::prelude::*;
 
@@ -61,10 +60,10 @@ impl<F> ApplicationHandler for Purple<F> where F: FnMut(&mut Context) {
 
 		let mut icon = None;
 		if let Some(icon_image) = &mut self.config.icon {
-			log!("Icon image found");
+			debug!("Icon image found");
 			let Dimensions { width, height } = icon_image.size();
 			let icon_data = icon_image.get_bytes();
-			icon = Some(Icon::from_rgba(icon_data, width as u32, height as u32).unwrap());
+			icon = Some(Icon::from_rgba(icon_data.to_vec(), width as u32, height as u32).unwrap());
 		} // end if let Some(icon_image)
 
 		let mut window_attributes = window::WindowAttributes::default()
@@ -73,7 +72,8 @@ impl<F> ApplicationHandler for Purple<F> where F: FnMut(&mut Context) {
 		.with_resizable(true)
 		.with_decorations(!self.config.disable_decorations)
 		.with_min_inner_size(winit::dpi::PhysicalSize::new(40, 40))
-		.with_resizable(self.config.resizeable);
+		.with_resizable(self.config.resizeable)
+		.with_window_icon(icon);
 
 		let mut resolution = self.config.resolution;
 
@@ -88,7 +88,7 @@ impl<F> ApplicationHandler for Purple<F> where F: FnMut(&mut Context) {
 		} else { panic!("The canvas id must be set"); }
 
 		window_attributes = window_attributes.with_inner_size(winit::dpi::PhysicalSize::new(resolution.width, resolution.height));
-		let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
+		let window = std::sync::Arc::new(event_loop.create_window(window_attributes).unwrap());
 
 		let ptr = &mut self.context as *mut Option<Context>;
 		#[cfg(target_arch = "wasm32")]
@@ -104,7 +104,6 @@ impl<F> ApplicationHandler for Purple<F> where F: FnMut(&mut Context) {
 		{	async_std::task::block_on ( async move {
 				let result = Context::new(window.clone()).await;
 				unsafe { *ptr = Some(result); }
-				window.set_window_icon(icon);
 				window.clone().request_redraw();
 			}); // end block_on
 		} // end cfg not wasm32

@@ -4,7 +4,9 @@ pub mod purple;
 pub mod context;
 pub mod scene;
 pub mod shapes;
+
 pub use crosslog;
+pub use tiny_skia;
 
 pub mod prelude {
 	pub use crosslog::prelude::{println, *};

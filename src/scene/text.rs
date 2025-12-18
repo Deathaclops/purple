@@ -1,6 +1,6 @@
 use crate::scene::Scene;
 use crate::context::FontContext;
-use parley::{AlignmentOptions, BoundingBox, FontFamily, StyleProperty};
+use parley::{AlignmentOptions, FontFamily, StyleProperty};
 use vello::peniko::color::AlphaColor;
 use crate::prim::*;
 
