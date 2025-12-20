@@ -64,7 +64,6 @@ impl Context {
 				timestamp_writes: None,
 				occlusion_query_set: None,
 			}); // end let mut pass
-			
 			pass.set_pipeline(&self.gpu.pipeline);
 			pass.set_bind_group(0, &self.gpu.bind_group, &[]);
 			pass.draw(0..3, 0..1); // Fullscreen triangle

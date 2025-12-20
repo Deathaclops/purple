@@ -47,7 +47,7 @@ pub struct Purple<F> where F: FnMut(&mut Context) {
 } // end struct Purple
 
 impl<F> Purple<F> where F: FnMut(&mut Context) {
-	pub fn new ( config: WindowConfig, eloop: F ) {
+	pub fn new (config: WindowConfig, eloop: F) {
 		let event_loop: EventLoop<()> = EventLoop::new().unwrap();
 		event_loop.set_control_flow(ControlFlow::Wait);
 		let mut purple = Self { eloop, config, context: None };
