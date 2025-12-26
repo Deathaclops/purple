@@ -33,7 +33,7 @@ impl Default for WindowConfig {
 		title: "Purple Application".into(),
 		resolution: (960, 540).into(),
 		fullscreen: false,
-		canvas_id: Some("canvas".into()),
+		canvas_id: None,
 		disable_decorations: false,
 		icon: None,
 		resizeable: true,
@@ -78,14 +78,15 @@ impl<F> ApplicationHandler for Purple<F> where F: FnMut(&mut Context) {
 		let mut resolution = self.config.resolution;
 
 		#[cfg(target_arch = "wasm32")]
-		if let Some(canvas_id) = &self.config.canvas_id {
-			use winit::platform::web::WindowAttributesExtWebSys;
-			if let Some(canvas) = crate::web::get_canvas(canvas_id) {
-				if canvas.has_attribute("width") && canvas.has_attribute("height") {
-					resolution = (canvas.width(), canvas.height()).into();
-				} window_attributes = window_attributes.with_canvas(Some(canvas));
-			} else { panic!("Could not find specified canvas"); }
-		} else { panic!("The canvas id must be set"); }
+		{	use winit::platform::web::WindowAttributesExtWebSys;
+			if let Some(canvas_id) = &self.config.canvas_id {
+				if let Some(canvas) = crate::web::get_canvas(canvas_id) {
+					if canvas.has_attribute("width") && canvas.has_attribute("height") {
+						resolution = (canvas.width(), canvas.height()).into();
+					} window_attributes = window_attributes.with_canvas(Some(canvas));
+				} else { panic!("Could not find specified canvas"); }
+			} else { window_attributes = window_attributes.with_canvas(Some(crate::web::add_canvas(resolution))); }
+		} // end cfg wasm32
 
 		window_attributes = window_attributes.with_inner_size(winit::dpi::PhysicalSize::new(resolution.width, resolution.height));
 		let window = std::sync::Arc::new(event_loop.create_window(window_attributes).unwrap());
