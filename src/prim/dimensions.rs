@@ -8,8 +8,8 @@ pub struct Dimensions {
 } // end struct Dimensions
 
 impl Dimensions {
-	pub fn new(width: f64, height: f64) -> Self {
-		return Self { width, height };
+	pub fn new(width: impl Into<f64>, height: impl Into<f64>) -> Self {
+		return Self { width: width.into(), height: height.into() };
 	} // end fn new
 	pub fn zero() -> Self {
 		return Self { width: 0.0, height: 0.0 };
